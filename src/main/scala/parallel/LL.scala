@@ -23,14 +23,6 @@ object LL:
   def asyncF[A, B](f: A => B): A => Par[B] =
     a => lazyUnit(f(a))
 
-  def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] =
-    // fbs will block the main thread 
-    // if we do not wrap with fork because map operation
-    // could be computationally expensive.
-    fork:
-      val fbs: List[Par[B]] = ps.map(asyncF(f))
-      sequence(fbs)
-
   def sequence[A](ps: List[Par[A]]): Par[List[A]] =
     ps.foldRight(unit(List[A]()))((a, acc) => a.map2(acc)(_ :: _))
 
@@ -45,9 +37,23 @@ object LL:
       val (l, r) = pas.splitAt(pas.size / 2)
       sequenceBalanced(l).map2(sequenceBalanced(r))(_ ++ _)
 
-  extension [A](parList: Par[List[Int]])
-    def sortPar: Par[List[Int]] =
-      parList.map(_.sorted)
+  def sortPar(parList: Par[List[Int]]): Par[List[Int]] =
+    parList.map(_.sorted)
+
+  def parMap[A, B](as: List[A])(f: A => B): Par[List[B]] =
+    // fbs will block the main thread 
+    // if we do not wrap with fork because map operation
+    // could be computationally expensive.
+    fork:
+      val fbs: List[Par[B]] = as.map(asyncF(f))
+      sequence(fbs)
+
+  def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] =
+    // as.foldRight(unit(List.empty[A]))((a, acc) => if f(a) then unit(a).map2(acc)(_ :: _) else acc)
+    // lazyUnit(as.filter(f))
+    fork:
+      val pars: List[Par[List[A]]] = as.map(asyncF(a => if f(a) then List(a) else Nil))
+      sequence(pars).map(_.flatten)
 
   extension [A](pa: Par[A])
     def map2[B, C](pb: Par[B])(f: (A, B) => C): Par[C] =
@@ -55,6 +61,18 @@ object LL:
         val futureA = pa(es)
         val futureB = pb(es)
         UnitFuture(f(futureA.get, futureB.get))
+
+    def map3[B, C, D](pb: Par[B], pc: Par[C])(f: (A, B, C) => D): Par[D] =
+      map2(pb)((_, _)).map2(pc):
+        case ((a, b), c) => f(a, b, c)
+
+    def map4[B, C, D, E](pb: Par[B], pc: Par[C], pd: Par[D])(f: (A, B, C, D) => E): Par[E] =
+      map3(pb, pc)((_, _, _)).map2(pd):
+        case ((a, b, c), d) => f(a, b, c, d)
+
+    def map5[B, C, D, E, F](pb: Par[B], pc: Par[C], pd: Par[D], pe: Par[E])(f: (A, B, C, D, E) => F): Par[F] =
+      map4(pb, pc, pd)((_, _, _, _)).map2(pe):
+        case ((a, b, c, d), e) => f(a, b, c, d, e)
 
     def map2Timeouts[B, C](pb: Par[B])(f: (A, B) => C): Par[C] =
       es => new Future[C]:
