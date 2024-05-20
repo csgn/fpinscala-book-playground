@@ -46,7 +46,7 @@ class LLSuite extends munit.FunSuite:
     val expected = 3
     val obtained = pa.map2(pb)((a, b) => a + b).run(es).get
 
-    assertEquals(expected, obtained)
+    assertEquals(obtained, expected)
 
   test("map3"):
     val pa = LL.unit(1)
@@ -56,7 +56,7 @@ class LLSuite extends munit.FunSuite:
     val expected = 6
     val obtained = pa.map3(pb, pc)((a, b, c) => a + b + c).run(es).get
 
-    assertEquals(expected, obtained)
+    assertEquals(obtained, expected)
 
   test("map4"):
     val pa = LL.unit(1)
@@ -68,7 +68,7 @@ class LLSuite extends munit.FunSuite:
     val obtained =
       pa.map4(pb, pc, pd)((a, b, c, d) => a + b + c + d).run(es).get
 
-    assertEquals(expected, obtained)
+    assertEquals(obtained, expected)
 
   test("map5"):
     val pa = LL.unit(1)
@@ -81,6 +81,6 @@ class LLSuite extends munit.FunSuite:
     val obtained =
       pa.map5(pb, pc, pd, pe)((a, b, c, d, e) => a + b + c + d + e).run(es).get
 
-    assertEquals(expected, obtained)
+    assertEquals(obtained, expected)
 
 end LLSuite
