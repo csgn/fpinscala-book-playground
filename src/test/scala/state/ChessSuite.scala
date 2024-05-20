@@ -7,7 +7,7 @@ class ChessSuite extends munit.FunSuite:
 
   test("White's turn to play with Pa3 move"):
     val action = Action(Player.White, Piece.P, HPos._a, VPos._3)
-    val (result, nextBoard) = Game
+    val (_, nextBoard) = Game
       .action(List(action))
       .run(initialBoard)
 
