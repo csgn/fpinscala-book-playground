@@ -39,10 +39,15 @@ object LL:
   def sequenceBalanced[A](pas: IndexedSeq[Par[A]]): Par[IndexedSeq[A]] =
     // also we can implement using divide & conquer
     if pas.isEmpty then unit(IndexedSeq.empty)
-    else if pas.size == 1 then pas.head.map(a => IndexedSeq(a))
+    else if pas.size == 1 then pas.head.map(IndexedSeq(_))
     else
       val (l, r) = pas.splitAt(pas.size / 2)
       sequenceBalanced(l).map2(sequenceBalanced(r))(_ ++ _)
+
+  def sequenceRight[A](pas: List[Par[A]]): Par[List[A]] =
+    pas match
+      case Nil    => unit(Nil)
+      case h :: t => h.map2(fork(sequenceRight(t)))(_ :: _)
 
   def sortPar(parList: Par[List[Int]]): Par[List[Int]] =
     parList.map(_.sorted)
