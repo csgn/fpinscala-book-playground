@@ -1,10 +1,10 @@
 package parallel
 
-import parallel.*
+import scala.util.Random
 import java.util.concurrent.*
 
 class LLSuite extends munit.FunSuite:
-  val es = Executors.newSingleThreadExecutor()
+  private val es = Executors.newFixedThreadPool(4)
 
   test("Sorting parallel list of integers"):
     val unsortedParListOfInt = LL.unit(List(3, 2, 1))
@@ -80,6 +80,30 @@ class LLSuite extends munit.FunSuite:
     val expected = 15
     val obtained =
       pa.map5(pb, pc, pd, pe)((a, b, c, d, e) => a + b + c + d + e).run(es).get
+
+    assertEquals(obtained, expected)
+
+  test("choice"):
+    val l = List(1, 22, 3)
+    val cond = math.random < 0.25
+    val expected = if cond then 1 else 22
+    val obtained = LL.choice(LL.unit(cond))(LL.unit(l.min), LL.unit(l.max)).run(es).get
+
+    assertEquals(obtained, expected)
+
+  test("choice in terms of choiceN"):
+    val l = List(1, 22, 3)
+    val cond = math.random < 0.25
+    val expected = if cond then 1 else 22
+    val obtained = LL.choice(LL.unit(cond))(LL.unit(l.min), LL.unit(l.max)).run(es).get
+
+    assertEquals(obtained, expected)
+
+  test("choiceN"):
+    val l = List(LL.unit(1), LL.unit(2), LL.unit(3))
+    val n = 1
+    val expected = l(n).run(es).get
+    val obtained = LL.choiceN(LL.unit(n))(l).run(es).get
 
     assertEquals(obtained, expected)
 

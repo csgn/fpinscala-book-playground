@@ -1,19 +1,7 @@
-import state.{Input, Machine, Candy}
+import parallel.NonBlockLL
+
+import java.util.concurrent.Executors
 
 @main def main(): Unit =
-  val machine = Machine(true, 5, 10)
-  val inputs =
-    List(
-      Input.Coin,
-      Input.Turn,
-      Input.Coin,
-      Input.Turn,
-      Input.Coin,
-      Input.Turn,
-      Input.Coin,
-      Input.Turn
-    )
-  val s = Candy.simulateMachine(inputs).run(machine)
-  println(s)
+  val es = Executors.newFixedThreadPool(1)
 
-  // s = State(Machine(Locked=1, Candies=1, Coins=14), (Coins=14, Candies=1))
