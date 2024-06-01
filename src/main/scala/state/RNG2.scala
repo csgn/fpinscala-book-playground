@@ -28,6 +28,11 @@ object RNG2:
       val (i, r) = nonNegativeInt(rng)
       (i / (Int.MaxValue.toDouble + 1), r)
 
+  def boolean: Rand2[Boolean] =
+    rng =>
+      rng.nextInt match
+        case (i, rng2) => (i % 2 == 0, rng2)
+
   def intDouble: Rand2[(Int, Double)] =
     rng =>
       val (i, r) = rng.nextInt

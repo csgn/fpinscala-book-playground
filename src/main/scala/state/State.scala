@@ -1,48 +1,42 @@
 package state
 
-trait RNG:
-  def nextInt: (Int, RNG)
+opaque type State[S, +A] = S => (A, S)
+object State:
+  extension [S, A](underlying: State[S, A])
+    def run(s: S): (A, S) =
+      underlying(s)
 
-object RNG:
-  case class Simple(seed: Long) extends RNG:
-    override def nextInt: (Int, RNG) =
-      val newSeed = (seed * 0x5deece66dL + 0xbL) & 0xffffffffffffL
-      val nextRNG = Simple(newSeed)
-      val n = (newSeed >>> 16).toInt
-      (n, nextRNG)
+    def flatMap[B](f: A => State[S, B]): State[S, B] =
+      s =>
+        val (a, s1) = underlying(s)
+        f(a)(s1)
 
-  def nonNegativeInt(rng: RNG): (Int, RNG) =
-    val (i, r) = rng.nextInt
-    (if i < 0 then -(i + 1) else i, r)
+    def map[B](f: A => B): State[S, B] =
+      flatMap(a => unit(f(a)))
 
-  /*
-   * between 0 - 1, not including 1
-   */
-  def double(rng: RNG): (Double, RNG) =
-    val (i, r) = nonNegativeInt(rng)
-    (i / (Int.MaxValue.toDouble + 1), r)
+    def map2[B, C](s2: State[S, B])(f: (A, B) => C): State[S, C] =
+      for
+        a <- underlying
+        b <- s2
+      yield f(a, b)
 
-  def intDouble(rng: RNG): ((Int, Double), RNG) =
-    val (i, r) = rng.nextInt
-    val (i2, r2) = double(r)
-    ((i, i2), r2)
+  def sequence[S, A](actions: List[State[S, A]]): State[S, List[A]] =
+    actions.foldRight(unit(Nil: List[A]))((f, acc) => f.map2(acc)(_ :: _))
 
-  def doubleInt(rng: RNG): ((Double, Int), RNG) =
-    val ((i1, i2), r) = intDouble(rng)
-    ((i2, i1), r)
+  def traverse[S, A, B](as: List[A])(f: A => State[S, B]): State[S, List[B]] =
+    as.foldRight(unit[S, List[B]](Nil))((a, acc) => f(a).map2(acc)(_ :: _))
 
-  def double3(rng: RNG): ((Double, Double, Double), RNG) =
-    val (i1, r1) = double(rng)
-    val (i2, r2) = double(r1)
-    val (i3, r3) = double(r2)
-    ((i1, i2, i3), r3)
+  def unit[S, A](a: A): State[S, A] =
+    s => (a, s)
 
-  def ints(count: Int)(rng: RNG): (List[Int], RNG) =
-    @scala.annotation.tailrec
-    def go(n: Int, acc: List[Int], r2: RNG): (List[Int], RNG) =
-      if n >= count then (acc, r2)
-      else
-        val (i1, r3) = r2.nextInt
-        go(n + 1, i1 :: acc, r3)
+  def apply[S, A](f: S => (A, S)): State[S, A] = f
 
-    go(0, List(), rng)
+  def get[S]: State[S, S] = s => (s, s)
+  def set[S](s: S): State[S, Unit] = _ => ((), s)
+
+  def modify[S](f: S => S): State[S, Unit] =
+    for
+      s <- get
+      _ <- set(f(s))
+    yield ()
+
