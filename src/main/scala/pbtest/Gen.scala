@@ -4,9 +4,7 @@ import state.{RNG2, State}
 
 import Gen.*
 import Prop.*
-import Prop.Position.{Left, Right}
 import Prop.Result.{Passed, Falsified}
-import scala.util.Failure
 
 object Gen:
   type Gen[+A] = State[RNG2, A]
@@ -114,21 +112,16 @@ object Prop:
     extension (x: TestCases) def toInt: Int = x
     def fromInt(x: Int): TestCases = x
 
-  enum Position:
-    case Left
-    case Right
-
   enum Result:
     case Passed
     case Falsified(
         failure: FailedCase,
-        successes: SuccessCount,
-        position: Position = Left
+        successes: SuccessCount
     )
 
     def isFalsifed: Boolean = this match
-      case Passed             => false
-      case Falsified(_, _, _) => true
+      case Passed          => false
+      case Falsified(_, _) => true
 
   private def randomLazyList[A](g: Gen[A])(rng: RNG2): LazyList[A] =
     LazyList.unfold(rng)(rng => Some(g.run(rng)))
@@ -158,27 +151,29 @@ object Prop:
   extension (self: Prop)
     def &&(that: Prop): Prop =
       (n, rng) =>
-        self(n, rng) match
-          case Passed =>
-            that(n, rng) match
-              case Passed => Passed
-              case Falsified(f, s, _) =>
-                Falsified(f, s, Right)
-          case Falsified(f, s, _) =>
-            Falsified(f, s, Left)
+        self.tag("and-left")(n, rng) match
+          case Passed => that.tag("and-right")(n, rng)
+          case x      => x
 
     def ||(that: Prop): Prop =
       (n, rng) =>
-        self(n, rng) match
-          case Passed => Passed
-          case Falsified(f, s, _) =>
-            that(n, rng) match
-              case Passed => Passed
-              case Falsified(f, s, _) =>
-                Falsified(f, s, Right)
+        self.tag("or-left")(n, rng) match
+          case Falsified(_, _) => that.tag("or-right")(n, rng)
+          case x               => x
 
-    def check: Result =
-      val rng = RNG2.Simple2(System.nanoTime)
-      self(1, rng)
+    def tag(msg: String): Prop =
+      (n, rng) =>
+        self(n, rng) match
+          case Falsified(f, s) =>
+            Falsified(s"$msg($f)", s)
+          case x => x
+
+    def run: Unit =
+      val rng = RNG2.Simple2(System.currentTimeMillis)
+      val testCases = 100
+      self(testCases, rng) match
+        case Falsified(msg, n) =>
+          println(s"! Falsified after $n passed tests:\n $msg")
+        case Passed => println(s"+ OK, passed $testCases tests")
 
 end Prop

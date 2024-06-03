@@ -22,7 +22,7 @@ class PbtestSuite extends munit.FunSuite:
     val g1 = Gen.listOfN(5, Gen.choose(0, 5))
     val g2 = Gen.listOfN(5, Gen.choose(5, 10))
     val p = Prop.forAll(g1)(a => 1 == 1)
-      || Prop.forAll(g2)(b => 1 == 1)
+      && Prop.forAll(g2)(b => 1 != 1)
 
-    println(p.check)
+    p.run
 end PbtestSuite
