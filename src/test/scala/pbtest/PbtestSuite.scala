@@ -19,10 +19,17 @@ class PbtestSuite extends munit.FunSuite:
 
     /* println(Prop.buildMsg(Gen.choose(0, 5), Exception("hello world"))) */
 
-    val g1 = Gen.listOfN(5, Gen.choose(0, 5))
-    val g2 = Gen.listOfN(5, Gen.choose(5, 10))
-    val p = Prop.forAll(g1)(a => 1 == 1)
-      && Prop.forAll(g2)(b => 1 != 1)
+    // val g1 = Gen.listOfN(5, Gen.choose(0, 5))
+    // val g2 = Gen.listOfN(5, Gen.choose(5, 10))
+    // val p = Prop.forAll(g1)(a => 1 == 1)
+    //   && Prop.forAll(g2)(b => 1 == 1)
+    // p.run
 
-    p.run
+    val smallInt = Gen.choose(-10, 10)
+    val maxProp = Prop.forAll(smallInt.list): l =>
+      val max = l.max
+      l.forall(_ <= max)
+
+    maxProp.run()
+
 end PbtestSuite
