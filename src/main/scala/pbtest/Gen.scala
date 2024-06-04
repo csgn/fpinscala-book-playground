@@ -110,7 +110,10 @@ object Gen:
       size.flatMap(listOfN)
 
     def list: SGen[List[A]] =
-      n => self.listOfN(n)
+      print("list[O] ")
+      n =>
+        print("list[F] ")
+        self.listOfN(n)
 
     def unsized: SGen[A] =
       _ => self
@@ -151,24 +154,31 @@ object Prop:
         |Stack Trace: 
         |${e.getStackTrace.mkString("\n")}""".stripMargin
 
-  def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop: (n, rng) =>
-    randomLazyList(as)(rng)
-      .zip(LazyList.from(0))
-      .take(n)
-      .map:
-        case (a, i) =>
-          try
-            if f(a) then Passed
-            else Falsified(a.toString, i)
-          catch
-            case e: Exception =>
-              Falsified(buildMsg(a, e), i)
-      .find(_.isFalsifed)
-      .getOrElse(Passed)
+  def forAll[A](as: Gen[A])(f: A => Boolean): Prop =
+    print("forAll1[X] ")
+    Prop:
+      print("forAll1[O] ")
+      (n, rng) =>
+        print("forAll1[L] ")
+        randomLazyList(as)(rng)
+          .zip(LazyList.from(0))
+          .take(n)
+          .map:
+            case (a, i) =>
+              try
+                if f(a) then Passed
+                else Falsified(a.toString, i)
+              catch
+                case e: Exception =>
+                  Falsified(buildMsg(a, e), i)
+          .find(_.isFalsifed)
+          .getOrElse(Passed)
 
   @annotation.targetName("forAllSized")
   def forAll[A](as: SGen[A])(f: A => Boolean): Prop =
+    print("forAll2[L] ")
     (max, n, rng) =>
+      print("forAll2[F] ")
       val casesPerSize = (n.toInt - 1) / max.toInt + 1
       // map functions run interleaved with each other
       val prop =
@@ -176,23 +186,37 @@ object Prop:
           .from(0)
           .take((n.toInt min max.toInt) + 1)
           // not evaluated immediately, and evaluated firstly
-          .map(i => forAll(as(i))(f))
+          .map(i => {print("MAP1[L] "); forAll(as(i))({print("MAP1[F] "); f})})
           // not evaluated immediately, and evaluated secondly
-          .map[Prop](p => (max, n, rng) => p(max, casesPerSize, rng))
+          .map[Prop](p => {println("MAP2[L] "); (max, n, rng) => {print("MAP2[F] "); p(max, casesPerSize, rng)}})
           // starts to evaluate lazylist
           .toList
-          .reduce(_ && _)
+          .reduce((a, b) =>
+            // &(p1, p2)
+            // &(&(p1, p2), p3))
+            // &(&(&(p1, p2), p3)), p4)
+            print("REDUCE ")
+            a && b
+          )
 
+      println("PROP")
       prop(max, n, rng)
 
   def apply(f: (TestCases, RNG2) => Result): Prop =
-    (_, n, rng) => f(n, rng)
+    print("APPLY[L] ")
+    (_, n, rng) =>
+      print("APPLY[F] ")
+      f(n, rng)
 
   extension (self: Prop)
     def &&(that: Prop): Prop =
+      print("&&[L] ")
       (max, n, rng) =>
+        print("&&[F] ")
         self.tag("and-left")(max, n, rng) match
-          case Passed => that.tag("and-right")(max, n, rng)
+          case Passed =>
+            println("&&[I]")
+            that.tag("and-right")(max, n, rng)
           case x      => x
 
     def ||(that: Prop): Prop =
@@ -213,6 +237,7 @@ object Prop:
         testCases: TestCases = 100,
         rng: RNG2 = RNG2.Simple2(System.currentTimeMillis)
     ): Unit =
+      print("RUN ")
       self(maxSize, testCases, rng) match
         case Falsified(msg, n) =>
           println(s"! Falsified after $n passed tests:\n $msg")

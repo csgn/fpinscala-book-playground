@@ -28,6 +28,7 @@ class PbtestSuite extends munit.FunSuite:
     val smallInt = Gen.choose(-10, 10)
     val maxProp = Prop.forAll(smallInt.list): l =>
       val max = l.max
+      println(l)
       l.forall(_ <= max)
 
     maxProp.run()

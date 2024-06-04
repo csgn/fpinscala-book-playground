@@ -1,13 +1,19 @@
 import pbtest.*
 import pbtest.Prop.{MaxSize, TestCases}
+import state.RNG2
 import state.RNG2.Simple2
 
 @main def main(): Unit =
+  val rng = RNG2.Simple2(System.currentTimeMillis)
   val smallInt = Gen.choose(-10, 10)
-  val maxProp = Prop.forAll(smallInt.listOfN(5)): l =>
-    val max = l.max
-    l.forall(_ <= max)
+  val maxProp = Prop.forAll(smallInt.list): l =>
+    print("maxProp[F] ")
+    if l.isEmpty then true
+    else
+      print(l.toString + " ")
+      val max = l.max
+      l.forall(_ <= max)
 
-  maxProp.run(MaxSize.fromInt(3), TestCases.fromInt(3), Simple2(System.currentTimeMillis))
-
-
+  print("maxPropRUN ")
+  maxProp.run(MaxSize.fromInt(3), TestCases.fromInt(3), rng = rng)
+  println("DONE")
