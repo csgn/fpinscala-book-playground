@@ -6,14 +6,12 @@ import state.RNG2.Simple2
 @main def main(): Unit =
   val rng = RNG2.Simple2(System.currentTimeMillis)
   val smallInt = Gen.choose(-10, 10)
-  val maxProp = Prop.forAll(smallInt.list): l =>
+  val maxProp = Prop.forAll(smallInt.nonEmptyList): l =>
     print("maxProp[F] ")
-    if l.isEmpty then true
-    else
-      print(l.toString + " ")
-      val max = l.max
-      l.forall(_ <= max)
+    print(l.toString + " ")
+    val max = l.max
+    l.forall(_ <= max)
 
   print("maxPropRUN ")
-  maxProp.run(MaxSize.fromInt(3), TestCases.fromInt(3), rng = rng)
+  maxProp.run(MaxSize.fromInt(1), TestCases.fromInt(3), rng = rng)
   println("DONE")

@@ -1,7 +1,8 @@
 package pbtest
 
+import parallel.LL
 import state.{RNG2, State}
-import Gen.listOfN
+import java.util.concurrent.{ExecutorService, Executors}
 
 class PbtestSuite extends munit.FunSuite:
   test("1"):
@@ -25,12 +26,36 @@ class PbtestSuite extends munit.FunSuite:
     //   && Prop.forAll(g2)(b => 1 == 1)
     // p.run
 
-    val smallInt = Gen.choose(-10, 10)
-    val maxProp = Prop.forAll(smallInt.list): l =>
-      val max = l.max
-      println(l)
-      l.forall(_ <= max)
+    // val smallInt = Gen.choose(-10, 10)
+    // val maxProp = Prop.forAll(smallInt.nonEmptyList): l =>
+    //   val max = l.max
+    //   !l.exists(_ > max)
 
-    maxProp.run()
+    val es = Executors.newCachedThreadPool
+
+    // val p1 = Prop.forAll(Gen.unit(LL.unit(1))): pi =>
+    //   pi.map(_ + 1).run(es).get == LL.unit(2).run(es).get
+
+    // val p2 = Prop.verify:
+    //   val p1 = LL.unit(1).map(_ + 1)
+    //   val p2 = LL.unit(2)
+    //   p1.run(es).get == p2.run(es).get
+
+    // val p3 = Prop.verify:
+    //   Prop
+    //     .equal(
+    //       LL.unit(1).map(_ + 1),
+    //       LL.unit(2)
+    //     )
+    //     .run(es)
+    //     .get
+
+    val p4 = Prop.verifyPar:
+      Prop.equal(
+        LL.unit(1).map(_ + 1),
+        LL.unit(2)
+      )
+
+    p4.run()
 
 end PbtestSuite

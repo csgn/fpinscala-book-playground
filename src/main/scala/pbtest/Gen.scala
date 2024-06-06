@@ -1,11 +1,14 @@
 package pbtest
 
 import state.{RNG2, State}
+import parallel.LL
 
 import Gen.*
 import Prop.*
 import SGen.*
-import Prop.Result.{Passed, Falsified}
+import Prop.Result.{Passed, Falsified, Proved}
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 opaque type SGen[+A] = Int => Gen[A]
 object SGen:
@@ -19,6 +22,9 @@ end SGen
 
 opaque type Gen[+A] = State[RNG2, A]
 object Gen:
+  object `**`:
+    def unapply[A, B](p: (A, B)) = Some(p)
+
   def unit[A](a: => A): Gen[A] =
     State.unit(a)
 
@@ -94,6 +100,10 @@ object Gen:
       else i
 
   extension [A](self: Gen[A])
+    @annotation.targetName("product")
+    def **[B](gb: Gen[B]): Gen[(A, B)] =
+      map2(gb)((_, _))
+
     def flatMap[B](f: A => Gen[B]): Gen[B] =
       State.flatMap(self)(f)
 
@@ -114,6 +124,9 @@ object Gen:
       n =>
         print("list[F] ")
         self.listOfN(n)
+
+    def nonEmptyList: SGen[List[A]] =
+      n => list(if n == 0 then n + 1 else n /*or n.max(1)*/ )
 
     def unsized: SGen[A] =
       _ => self
@@ -140,10 +153,12 @@ object Prop:
         failure: FailedCase,
         successes: SuccessCount
     )
+    case Proved;
 
     def isFalsifed: Boolean = this match
       case Passed          => false
       case Falsified(_, _) => true
+      case Proved          => false
 
   private def randomLazyList[A](g: Gen[A])(rng: RNG2): LazyList[A] =
     LazyList.unfold(rng)(rng => Some(g.run(rng)))
@@ -186,9 +201,14 @@ object Prop:
           .from(0)
           .take((n.toInt min max.toInt) + 1)
           // not evaluated immediately, and evaluated firstly
-          .map(i => {print("MAP1[L] "); forAll(as(i))({print("MAP1[F] "); f})})
+          .map(i => {
+            print("MAP1[L] "); forAll(as(i))({ print("MAP1[F] "); f })
+          })
           // not evaluated immediately, and evaluated secondly
-          .map[Prop](p => {println("MAP2[L] "); (max, n, rng) => {print("MAP2[F] "); p(max, casesPerSize, rng)}})
+          .map[Prop](p => {
+            println("MAP2[L] ");
+            (max, n, rng) => { print("MAP2[F] "); p(max, casesPerSize, rng) }
+          })
           // starts to evaluate lazylist
           .toList
           .reduce((a, b) =>
@@ -202,11 +222,33 @@ object Prop:
       println("PROP")
       prop(max, n, rng)
 
+  val executors: Gen[ExecutorService] = weighted(
+    choose(1, 4).map(Executors.newFixedThreadPool) -> .75,
+    unit(Executors.newCachedThreadPool) -> .25
+  )
+
+  def forAllPar[A](g: Gen[A])(f: A => LL.Par[Boolean]): Prop =
+    forAll(executors ** g):
+      case s ** a =>
+        f(a).run(s).get
+
   def apply(f: (TestCases, RNG2) => Result): Prop =
     print("APPLY[L] ")
     (_, n, rng) =>
       print("APPLY[F] ")
       f(n, rng)
+
+  def equal[A](p1: LL.Par[A], p2: LL.Par[A]): LL.Par[Boolean] =
+    print("equal[L] ")
+    p1.map2(p2)(_ == _)
+
+  def verify(p: => Boolean): Prop =
+    print("verify[L] ")
+    (_, _, _) =>
+      print("verify[F] "); if p then Passed else Falsified("()", 0)
+
+  def verifyPar(p: LL.Par[Boolean]): Prop =
+    forAllPar(unit(()))(_ => p)
 
   extension (self: Prop)
     def &&(that: Prop): Prop =
@@ -217,7 +259,7 @@ object Prop:
           case Passed =>
             println("&&[I]")
             that.tag("and-right")(max, n, rng)
-          case x      => x
+          case x => x
 
     def ||(that: Prop): Prop =
       (max, n, rng) =>
@@ -240,8 +282,10 @@ object Prop:
       print("RUN ")
       self(maxSize, testCases, rng) match
         case Falsified(msg, n) =>
-          println(s"! Falsified after $n passed tests:\n $msg")
-        case Passed => println(s"+ OK, passed $testCases tests")
+          println(Console.RED + s"! Falsified after $n passed tests:\n $msg")
+        case Passed =>
+          println(Console.GREEN + s"+ OK, passed $testCases tests.")
+        case Proved => println(Console.GREEN + s"+ OK, proved property.")
 
     def check(
         maxSize: MaxSize = 100,
