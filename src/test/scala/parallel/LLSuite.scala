@@ -87,7 +87,8 @@ class LLSuite extends munit.FunSuite:
     val l = List(1, 22, 3)
     val cond = math.random < 0.25
     val expected = if cond then 1 else 22
-    val obtained = LL.choice(LL.unit(cond))(LL.unit(l.min), LL.unit(l.max)).run(es).get
+    val obtained =
+      LL.choice(LL.unit(cond))(LL.unit(l.min), LL.unit(l.max)).run(es).get
 
     assertEquals(obtained, expected)
 
@@ -95,7 +96,8 @@ class LLSuite extends munit.FunSuite:
     val l = List(1, 22, 3)
     val cond = math.random < 0.25
     val expected = if cond then 1 else 22
-    val obtained = LL.choice(LL.unit(cond))(LL.unit(l.min), LL.unit(l.max)).run(es).get
+    val obtained =
+      LL.choice(LL.unit(cond))(LL.unit(l.min), LL.unit(l.max)).run(es).get
 
     assertEquals(obtained, expected)
 

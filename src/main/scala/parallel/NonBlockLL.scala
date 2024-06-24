@@ -61,8 +61,10 @@ object NonBlockLL:
           else eval(es)(f(es)(cb))
 
   def choiceN[A](p: Par[Int])(ps: List[Par[A]]): Par[A] =
-    es => cb => p(es): i =>
-      eval(es)(ps(i % ps.size)(es)(cb))
+    es =>
+      cb =>
+        p(es): i =>
+          eval(es)(ps(i % ps.size)(es)(cb))
 
   def choiceViaChoiceN[A](
       cond: Par[Boolean]
@@ -70,8 +72,10 @@ object NonBlockLL:
     choiceN(cond.map(b => if b then 0 else 1))(List(t, f))
 
   def choiceMap[K, V](key: Par[K])(ps: Map[K, Par[V]]): Par[V] =
-    es => cb => key(es): k =>
-      ps(k)(es)(cb)
+    es =>
+      cb =>
+        key(es): k =>
+          ps(k)(es)(cb)
 
   def chooser[A, B](p: Par[A])(f: A => Par[B]): Par[B] =
     p.flatMap(f)

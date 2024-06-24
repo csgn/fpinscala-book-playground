@@ -3,6 +3,7 @@ package parser
 import scala.util.matching.Regex
 
 trait Parsers[ParseError, Parser[+_]]:
+
   /* succeed(X) == Parser(X) */
   def succeed[A](a: A): Parser[A] =
     string("").map(_ => a)
@@ -25,6 +26,19 @@ trait Parsers[ParseError, Parser[+_]]:
   def regex(r: Regex): Parser[String]
 
   extension [A](p1: Parser[A])
+    def as[B](b: B): Parser[B]
+
+    def label(msg: String): Parser[A]
+
+    def scope(msg: String): Parser[A]
+
+    def attempt: Parser[A]
+
+    def sep(seperator: Parser[Any]): Parser[List[A]]
+
+    def *>[B](p2: => Parser[B]): Parser[B] = map2(p2)((_, b) => b)
+    def <*[B](p2: => Parser[B]): Parser[A] = map2(p2)((a, _) => a)
+
     /* char(c).many.slice.run(S) == Right(S) */
     def slice: Parser[String]
 

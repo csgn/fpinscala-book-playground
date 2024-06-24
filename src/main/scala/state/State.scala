@@ -39,4 +39,3 @@ object State:
       s <- get
       _ <- set(f(s))
     yield ()
-

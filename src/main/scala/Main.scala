@@ -1,7 +1,6 @@
-import pbtest.*
-import pbtest.Prop.{MaxSize, TestCases}
-import state.RNG2
-import state.RNG2.Simple2
+import monoids.*
 
 @main def main(): Unit =
-  ???
+  val s = "lorem ipsum dolor sit amet, "
+  val count = wordCounter(s, wcMonoid)
+  println(count)
