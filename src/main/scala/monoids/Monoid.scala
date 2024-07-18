@@ -103,3 +103,22 @@ object MonoidGivens:
   given Monoid[String] with
     def empty: String = ""
     def combine(x: String, y: String): String = x + y
+
+  given [A, B](using ma: Monoid[A], mb: Monoid[B]): Monoid[(A, B)] with
+    def empty: (A, B) = (ma.empty, mb.empty)
+    def combine(x: (A, B), y: (A, B)): (A, B) =
+      (ma.combine(x(0), y(0)), mb.combine(x(1), y(1)))
+
+  given [K, V](using mv: Monoid[V]): Monoid[Map[K, V]] with
+    def empty: Map[K, V] = Map()
+    def combine(x: Map[K, V], y: Map[K, V]): Map[K, V] =
+      (x.keySet ++ y.keySet).foldLeft(empty): (acc, k) =>
+        acc.updated(
+          k,
+          mv.combine(x.getOrElse(k, mv.empty), y.getOrElse(k, mv.empty)),
+        )
+
+  given [A, B](using mb: Monoid[B]): Monoid[A => B] with
+    def empty: A => B = a => mb.empty
+    def combine(x: A => B, y: A => B): A => B =
+      a => mb.combine(x(a), y(a))
