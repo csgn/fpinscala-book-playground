@@ -1,14 +1,13 @@
-import monoids.{MonoidSyntax, MonoidInstances, MonoidGivens}
-import MonoidSyntax.*
-import MonoidInstances.*
-import MonoidGivens.given
+import monads.*
+
 
 @main def main(): Unit =
-  val im =
-    foldMapBalancedViaGiven(IndexedSeq("a", "b", "c", "d"))(identity)
-  println(im)
+  val form = WebForm.validateWebForm(
+    "sergen",
+    "2001-10-",
+    "398463298"
+  )
 
-  val f: Int => String = (n: Int) => s"$n t"
-  val g: String => Int = (s: String) => s.length
+  println(form)
 
-  println(f.andThen(g)(2))
+

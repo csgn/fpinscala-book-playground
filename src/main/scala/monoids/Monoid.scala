@@ -5,9 +5,11 @@ import monoids.MonoidInstances.*
 import pbtest.{Gen, Prop}
 import Gen.`**`
 
-trait Monoid[A]:
-  def empty: A
+trait Semigroup[A]:
   def combine(x: A, y: A): A
+
+trait Monoid[A] extends Semigroup[A]:
+  def empty: A
 
 object MonoidSyntax:
   def switchDual[A](m: Monoid[A]): Monoid[A] = new:
@@ -99,6 +101,10 @@ object MonoidGivens:
   given Monoid[Int] with
     def empty: Int = 0
     def combine(x: Int, y: Int): Int = x + y
+
+  given [A]: Monoid[List[A]] with
+    def empty: List[A] = Nil
+    def combine(x: List[A], y: List[A]): List[A] = x ++ y
 
   given Monoid[String] with
     def empty: String = ""
