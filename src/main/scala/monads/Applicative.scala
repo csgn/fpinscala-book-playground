@@ -20,8 +20,6 @@ enum Validated[+E, +A]:
   case Valid(get: A) extends Validated[Nothing, A]
   case Invalid(error: E) extends Validated[E, Nothing]
 
-import Validated.*
-
 given validatedApplicative[E: Semigroup]: Applicative[[x] =>> Validated[E, x]]
 with
   def unit[A](a: => A): Validated[E, A] = Valid(a)
