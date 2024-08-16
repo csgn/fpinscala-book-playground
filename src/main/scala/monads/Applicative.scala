@@ -4,6 +4,75 @@ import monoids.Semigroup
 
 import java.time.LocalDate
 import Validated.*
+//import monads.ApplicativeInstances.{idApplicative, validatedApplicative}
+
+type Id[A] = A
+
+case class Tree[+A](head: A, tail: List[Tree[A]])
+
+trait Traverse[F[_]] extends Functor[F]:
+  extension [A](fa: F[A])
+    def traverse[G[_]: Applicative, B](f: A => G[B]): G[F[B]] =
+      fa.map(f).sequence
+
+    override def map[B](f: A => B): F[B] =
+      // fa.traverse[Id, B](f)(using idApplicative)
+      ???
+
+  extension [G[_]: Applicative, A](fga: F[G[A]])
+    def sequence: G[F[A]] =
+      fga.traverse(identity)
+
+object TraverseInstances:
+  given treeTraverse: Traverse[Tree] with
+    extension [A](fa: Tree[A])
+      override def map[B](f: A => B): Tree[B] =
+        Tree(f(fa.head), fa.tail.map(_.map(f)))
+
+    extension [A](fa: Tree[A])
+      override def traverse[G[_]: Applicative, B](f: A => G[B]): G[Tree[B]] =
+        f(fa.head).map2(fa.tail.traverse(a => a.traverse(f)))(Tree(_, _))
+
+  given listTraverse: Traverse[List] with
+    extension [A](fa: List[A])
+      override def map[B](f: A => B): List[B] =
+        fa.map(f)
+
+    extension [A](fa: List[A])
+      override def traverse[G[_]: Applicative, B](f: A => G[B]): G[List[B]] =
+        val g = summon[Applicative[G]]
+
+        fa.foldRight(g.unit(List.empty[B]))((a, acc) => {
+          f(a).map2(acc)(_ :: _)
+        })
+
+  given optionTraverse: Traverse[Option] with
+    extension [A](fa: Option[A])
+      override def map[B](f: A => B): Option[B] =
+        fa.map(f)
+
+    extension [A](fa: Option[A])
+      override def traverse[G[_]: Applicative, B](
+          f: A => G[B]
+      ): G[Option[B]] = {
+        fa match
+          case None    => summon[Applicative[G]].unit(None)
+          case Some(a) => f(a).map(Some(_))
+      }
+
+  given mapTraverse[K]: Traverse[[x] =>> Map[K, x]] with
+    extension [A](fa: Map[K, A])
+      override def map[B](f: A => B): Map[K, B] = fa.map((k, v) => (k -> f(v)))
+
+    extension [A](fa: Map[K, A])
+      override def traverse[G[_]: Applicative, B](
+          f: A => G[B]
+      ): G[Map[K, B]] =
+        val g = summon[Applicative[G]]
+
+        fa.foldRight(g.unit(Map.empty[K, B])) { case ((k, v), acc) =>
+          f(v).map2(acc)((a, m) => m + (k -> a))
+        }
 
 case class NonEmptyList[+A](head: A, tail: List[A]):
   def toList: List[A] = head :: tail
@@ -19,21 +88,6 @@ object NonEmptyList:
 enum Validated[+E, +A]:
   case Valid(get: A) extends Validated[Nothing, A]
   case Invalid(error: E) extends Validated[E, Nothing]
-
-given validatedApplicative[E: Semigroup]: Applicative[[x] =>> Validated[E, x]]
-with
-  def unit[A](a: => A): Validated[E, A] = Valid(a)
-  extension [A](fa: Validated[E, A])
-    override def map2[B, C](fb: Validated[E, B])(
-        f: (A, B) => C
-    ): Validated[E, C] = {
-      (fa, fb) match
-        case (Valid(a), Valid(b)) => Valid(f(a, b))
-        case (Invalid(ea), Invalid(eb)) =>
-          Invalid(summon[Semigroup[E]].combine(ea, eb))
-        case (e @ Invalid(_), _) => e
-        case (_, e @ Invalid(_)) => e
-    }
 
 object WebForm:
   case class WebForm(name: String, birthdate: LocalDate, phoneNumber: String)
@@ -54,15 +108,15 @@ object WebForm:
     if phoneNumber.matches("[0-9]{10}") then Valid(phoneNumber)
     else Invalid(NonEmptyList("Phone number must be 10 digits"))
 
-  def validateWebForm(
-      name: String,
-      birthdate: String,
-      phoneNumber: String,
-  ): Validated[NonEmptyList[String], WebForm] =
-    validName(name).map3(
-      validBirthdate(birthdate),
-      validPhone(phoneNumber),
-    )(WebForm(_, _, _))
+  // def validateWebForm(
+  //     name: String,
+  //     birthdate: String,
+  //     phoneNumber: String,
+  // ): Validated[NonEmptyList[String], WebForm] =
+  //   validName(name).map3(
+  //     validBirthdate(birthdate),
+  //     validPhone(phoneNumber),
+  //   )(WebForm(_, _, _))
 
 trait Monad2[F[_]] extends Applicative[F]:
 
@@ -167,3 +221,22 @@ trait Applicative[F[_]] extends Functor[F]:
     def product[B](fb: F[B]): F[(A, B)] =
       // in terms of map2
       fa.map2(fb)((_, _))
+object ApplicativeInstances:
+  // given idApplicative[A]: Applicative[Id] with
+  //   def unit[A](a: A): Id[A] = a
+  //   extension [A](a: A) def flatMap[B](f: A => B): B = f(a)
+
+  given validatedApplicative[E: Semigroup]: Applicative[[x] =>> Validated[E, x]]
+  with
+    def unit[A](a: => A): Validated[E, A] = Valid(a)
+    extension [A](fa: Validated[E, A])
+      override def map2[B, C](fb: Validated[E, B])(
+          f: (A, B) => C
+      ): Validated[E, C] = {
+        (fa, fb) match
+          case (Valid(a), Valid(b)) => Valid(f(a, b))
+          case (Invalid(ea), Invalid(eb)) =>
+            Invalid(summon[Semigroup[E]].combine(ea, eb))
+          case (e @ Invalid(_), _) => e
+          case (_, e @ Invalid(_)) => e
+      }
